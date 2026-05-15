@@ -4,9 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "prepare:data": "node scripts/extract-select-ticket-data.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "pnpm build && gh-pages -d dist"
   },
   "dependencies": {
     "preact": "^10.29.1"
