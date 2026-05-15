@@ -53,6 +53,115 @@
   margin: 0;
 }
 
+.global-search {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 auto 18px;
+  max-width: 1280px;
+  padding: 16px;
+}
+
+.global-search label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.global-search label span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.global-search input {
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-strong);
+  font: inherit;
+  padding: 11px 12px;
+}
+
+.search-results {
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.search-results p {
+  margin: 0 0 10px;
+}
+
+.search-results strong {
+  color: var(--text-strong);
+}
+
+.search-results > div {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  max-height: 280px;
+  overflow: auto;
+}
+
+.search-result,
+.linked-ticket {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px;
+  text-align: left;
+}
+
+.search-result.active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.search-result strong {
+  color: var(--text-strong);
+  line-height: 1.3;
+}
+
+.search-result small,
+.linked-ticket small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.linked-tickets {
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.linked-tickets h2 {
+  font-size: 18px;
+  margin: 0 0 10px;
+}
+
+.linked-tickets > div {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.linked-ticket {
+  background: var(--panel);
+}
+
+.linked-ticket span {
+  color: var(--text-strong);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .viewer-grid {
   display: grid;
   gap: 18px;
@@ -151,7 +260,7 @@
 .filters {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px) minmax(140px, 180px);
+  grid-template-columns: minmax(180px, 240px) minmax(140px, 180px);
   padding: 14px;
 }
 

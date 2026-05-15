@@ -50,7 +50,10 @@ function normalizeSearchText(value: string) {
 
 export function App() {
   const [selectedTicketId, setSelectedTicketId] = useState(tickets[0]?.id ?? 0)
-  const [query, setQuery] = useState('')
+  const [globalQuery, setGlobalQuery] = useState('')
+  const [selectedSearchCardId, setSelectedSearchCardId] = useState<number | null>(
+    null,
+  )
   const [characterName, setCharacterName] = useState('all')
   const [rarity, setRarity] = useState('all')
 
@@ -69,26 +72,50 @@ export function App() {
     )
   }, [selectedTicket])
 
-  const filteredCards = useMemo(() => {
-    const normalizedQuery = normalizeSearchText(query)
+  const searchResults = useMemo(() => {
+    const normalizedQuery = normalizeSearchText(globalQuery)
 
+    if (normalizedQuery.length === 0) return []
+
+    const resultsByCardId = new Map<number, { card: Card; tickets: Ticket[] }>()
+
+    for (const ticket of tickets) {
+      for (const card of ticket.cards) {
+        if (!normalizeSearchText(card.name).includes(normalizedQuery)) continue
+
+        const result = resultsByCardId.get(card.id)
+        if (result) {
+          result.tickets.push(ticket)
+        } else {
+          resultsByCardId.set(card.id, { card, tickets: [ticket] })
+        }
+      }
+    }
+
+    return Array.from(resultsByCardId.values())
+      .map(({ card, tickets }) => ({ ...card, tickets }))
+      .sort(
+        (a, b) =>
+          a.characterName.localeCompare(b.characterName, 'ja-JP') ||
+          a.name.localeCompare(b.name, 'ja-JP'),
+      )
+  }, [globalQuery])
+
+  const selectedSearchCard =
+    searchResults.find((card) => card.id === selectedSearchCardId) ?? null
+
+  const filteredCards = useMemo(() => {
     return selectedTicket.cards.filter((card) => {
-      const matchesQuery =
-        normalizedQuery.length === 0 ||
-        normalizeSearchText(`${card.name}${card.characterName}${card.id}`).includes(
-          normalizedQuery,
-        )
       const matchesCharacter =
         characterName === 'all' || card.characterName === characterName
       const matchesRarity = rarity === 'all' || String(card.rarity) === rarity
 
-      return matchesQuery && matchesCharacter && matchesRarity
+      return matchesCharacter && matchesRarity
     })
-  }, [characterName, query, rarity, selectedTicket])
+  }, [characterName, rarity, selectedTicket])
 
   function handleTicketChange(ticketId: number) {
     setSelectedTicketId(ticketId)
-    setQuery('')
     setCharacterName('all')
     setRarity('all')
   }
@@ -114,6 +141,72 @@ export function App() {
           </div>
         </dl>
       </header>
+
+      <section class="global-search" aria-label="カード全体検索">
+        <label>
+          <span>カード全体検索</span>
+          <input
+            type="search"
+            value={globalQuery}
+            onInput={(event) => {
+              setGlobalQuery(event.currentTarget.value)
+              setSelectedSearchCardId(null)
+            }}
+            placeholder="カード名から検索"
+          />
+        </label>
+        {globalQuery.length > 0 && (
+          <div class="search-results">
+            <p>
+              <strong>{searchResults.length.toLocaleString('ja-JP')}</strong>
+              <span> cards</span>
+            </p>
+            <div>
+              {searchResults.slice(0, 80).map((card) => (
+                <button
+                  type="button"
+                  class={
+                    card.id === selectedSearchCardId
+                      ? 'search-result active'
+                      : 'search-result'
+                  }
+                  onClick={() => setSelectedSearchCardId(card.id)}
+                  key={card.id}
+                >
+                  <span
+                    class="card-character"
+                    style={{
+                      '--character-color': characterColors[card.characterId],
+                    }}
+                  >
+                    {card.characterName}
+                  </span>
+                  <strong>{card.name}</strong>
+                  <small>{card.tickets.length} tickets</small>
+                </button>
+              ))}
+            </div>
+            {selectedSearchCard && (
+              <section class="linked-tickets" aria-label="検索カードの対象チケット">
+                <h2>{selectedSearchCard.name}</h2>
+                <div>
+                  {selectedSearchCard.tickets.map((ticket) => (
+                    <button
+                      type="button"
+                      class="linked-ticket"
+                      onClick={() => handleTicketChange(ticket.id)}
+                      key={ticket.id}
+                    >
+                      <span>{ticket.name}</span>
+                      <small>開始日 {ticket.startDate}</small>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+      </section>
 
       <section class="viewer-grid">
         <aside class="ticket-panel" aria-label="セレクトチケット">
@@ -144,15 +237,6 @@ export function App() {
           </div>
 
           <div class="filters" aria-label="カード絞り込み">
-            <label>
-              <span>検索</span>
-              <input
-                type="search"
-                value={query}
-                onInput={(event) => setQuery(event.currentTarget.value)}
-                placeholder="カード名・メンバー名・Card ID"
-              />
-            </label>
             <label>
               <span>メンバー</span>
               <select
