@@ -22,6 +22,14 @@ type Ticket = {
 
 const tickets = ticketData.tickets as Ticket[]
 const totalCards = tickets.reduce((sum, ticket) => sum + ticket.cards.length, 0)
+const ticketsByCardId = new Map<number, Ticket[]>()
+
+for (const ticket of tickets) {
+  for (const card of ticket.cards) {
+    ticketsByCardId.set(card.id, [...(ticketsByCardId.get(card.id) ?? []), ticket])
+  }
+}
+
 const characterColors: Record<number, string> = {
   1021: '#68be8d',
   1022: '#ba2636',
@@ -54,6 +62,9 @@ export function App() {
   const [selectedSearchCardId, setSelectedSearchCardId] = useState<number | null>(
     null,
   )
+  const [expandedTicketCardId, setExpandedTicketCardId] = useState<number | null>(
+    null,
+  )
   const [characterName, setCharacterName] = useState('all')
   const [rarity, setRarity] = useState('all')
 
@@ -77,23 +88,17 @@ export function App() {
 
     if (normalizedQuery.length === 0) return []
 
-    const resultsByCardId = new Map<number, { card: Card; tickets: Ticket[] }>()
+    const resultsByCardId = new Map<number, Card>()
 
     for (const ticket of tickets) {
       for (const card of ticket.cards) {
         if (!normalizeSearchText(card.name).includes(normalizedQuery)) continue
-
-        const result = resultsByCardId.get(card.id)
-        if (result) {
-          result.tickets.push(ticket)
-        } else {
-          resultsByCardId.set(card.id, { card, tickets: [ticket] })
-        }
+        resultsByCardId.set(card.id, card)
       }
     }
 
     return Array.from(resultsByCardId.values())
-      .map(({ card, tickets }) => ({ ...card, tickets }))
+      .map((card) => ({ ...card, tickets: ticketsByCardId.get(card.id) ?? [] }))
       .sort(
         (a, b) =>
           a.characterName.localeCompare(b.characterName, 'ja-JP') ||
@@ -118,6 +123,7 @@ export function App() {
     setSelectedTicketId(ticketId)
     setCharacterName('all')
     setRarity('all')
+    setExpandedTicketCardId(null)
   }
 
   return (
@@ -170,7 +176,11 @@ export function App() {
                       ? 'search-result active'
                       : 'search-result'
                   }
-                  onClick={() => setSelectedSearchCardId(card.id)}
+                  onClick={() =>
+                    setSelectedSearchCardId((currentId) =>
+                      currentId === card.id ? null : card.id,
+                    )
+                  }
                   key={card.id}
                 >
                   <span
@@ -274,8 +284,21 @@ export function App() {
 
           <div class="card-grid">
             {filteredCards.map((card) => (
-              <article class="card-item" key={card.id}>
-                <div>
+              <article
+                class={
+                  card.id === expandedTicketCardId ? 'card-item active' : 'card-item'
+                }
+                key={card.id}
+              >
+                <button
+                  type="button"
+                  class="card-main"
+                  onClick={() =>
+                    setExpandedTicketCardId((currentId) =>
+                      currentId === card.id ? null : card.id,
+                    )
+                  }
+                >
                   <p
                     class="card-character"
                     style={{ '--character-color': characterColors[card.characterId] }}
@@ -283,14 +306,29 @@ export function App() {
                     {card.characterName}
                   </p>
                   <h3>{card.name}</h3>
-                </div>
-                <dl>
-                  <div>
-                    <dt>Rarity</dt>
-                    <dd>{rarityLabel(card.rarity)}</dd>
-                  </div>
-                </dl>
+                  <dl>
+                    <div>
+                      <dt>Rarity</dt>
+                      <dd>{rarityLabel(card.rarity)}</dd>
+                    </div>
+                  </dl>
+                </button>
                 {card.isParallel && <span class="badge">Parallel</span>}
+                {card.id === expandedTicketCardId && (
+                  <div class="card-linked-tickets">
+                    {(ticketsByCardId.get(card.id) ?? []).map((ticket) => (
+                      <button
+                        type="button"
+                        class="linked-ticket"
+                        onClick={() => handleTicketChange(ticket.id)}
+                        key={ticket.id}
+                      >
+                        <span>{ticket.name}</span>
+                        <small>開始日 {ticket.startDate}</small>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </article>
             ))}
           </div>
