@@ -62,13 +62,20 @@
   padding: 16px;
 }
 
-.global-search label {
+.global-search-controls {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.global-search-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.global-search label span {
+.global-search-field > span {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
@@ -162,6 +169,15 @@
   line-height: 1.35;
 }
 
+.empty-state {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  color: var(--muted);
+  margin: 0;
+  padding: 12px;
+}
+
 .viewer-grid {
   display: grid;
   gap: 18px;
@@ -185,10 +201,33 @@
   top: 24px;
 }
 
-.ticket-panel h2 {
+.ticket-panel-header {
+  align-items: center;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px 18px;
+}
+
+.ticket-panel-header h2 {
   margin: 0;
-  padding: 18px;
+}
+
+.select-all-tickets {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  color: var(--accent);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.select-all-tickets:hover {
+  background: rgba(15, 143, 140, 0.14);
 }
 
 .ticket-list {
@@ -200,23 +239,58 @@
   padding: 12px;
 }
 
-.ticket {
-  background: transparent;
+.ticket-row {
+  align-items: stretch;
   border: 1px solid transparent;
   border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 4px;
+}
+
+.ticket-row:hover,
+.ticket-row.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+}
+
+.owned-ticket-toggle {
+  align-items: center;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 4px;
+  justify-content: center;
+  min-width: 44px;
+  padding: 8px 4px;
+}
+
+.owned-ticket-toggle input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ticket {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
   color: var(--text);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
+  min-width: 0;
+  padding: 8px;
   text-align: left;
 }
 
-.ticket:hover,
-.ticket.active {
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
+.ticket:hover {
+  background: rgba(15, 143, 140, 0.08);
 }
 
 .ticket span {
@@ -276,7 +350,71 @@
   font-weight: 700;
 }
 
-.filters input,
+.switch-control {
+  align-items: center;
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  min-height: 45px;
+  padding: 10px 11px;
+  position: relative;
+  white-space: nowrap;
+}
+
+.switch-control input {
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.switch-track {
+  background: var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 22px;
+  position: relative;
+  transition: background 0.18s ease;
+  width: 40px;
+}
+
+.switch-track::after {
+  background: var(--panel);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.2);
+  content: '';
+  height: 18px;
+  left: 2px;
+  position: absolute;
+  top: 2px;
+  transition: transform 0.18s ease;
+  width: 18px;
+}
+
+.switch-control input:checked + .switch-track {
+  background: var(--accent);
+}
+
+.switch-control input:checked + .switch-track::after {
+  transform: translateX(18px);
+}
+
+.switch-control:has(input:focus-visible) {
+  outline: 3px solid rgba(15, 143, 140, 0.28);
+  outline-offset: 2px;
+}
+
+.switch-label {
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.filters input:not([type='checkbox']),
 .filters select {
   background: var(--input);
   border: 1px solid var(--border);
@@ -400,8 +538,13 @@
     max-height: 340px;
   }
 
+  .global-search-controls,
   .filters {
     grid-template-columns: 1fr;
+  }
+
+  .global-owned-mode {
+    justify-content: space-between;
   }
 
   .date-range {

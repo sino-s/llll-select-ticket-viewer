@@ -23,6 +23,8 @@ type Ticket = {
 const tickets = ticketData.tickets as Ticket[]
 const totalCards = tickets.reduce((sum, ticket) => sum + ticket.cards.length, 0)
 const ticketsByCardId = new Map<number, Ticket[]>()
+const ticketIds = new Set(tickets.map((ticket) => ticket.id))
+const ownedTicketStorageKey = 'llll-select-ticket-viewer:owned-ticket-ids'
 
 for (const ticket of tickets) {
   for (const card of ticket.cards) {
@@ -56,6 +58,38 @@ function normalizeSearchText(value: string) {
   return value.toLocaleLowerCase('ja-JP').replaceAll(/\s+/g, '')
 }
 
+function loadOwnedTicketIds() {
+  if (typeof window === 'undefined') return new Set<number>()
+
+  try {
+    const rawValue = window.localStorage.getItem(ownedTicketStorageKey)
+    if (!rawValue) return new Set<number>()
+
+    const parsedValue: unknown = JSON.parse(rawValue)
+    if (!Array.isArray(parsedValue)) return new Set<number>()
+
+    return new Set(
+      parsedValue.filter(
+        (ticketId): ticketId is number =>
+          typeof ticketId === 'number' && ticketIds.has(ticketId),
+      ),
+    )
+  } catch {
+    return new Set<number>()
+  }
+}
+
+function saveOwnedTicketIds(ownedTicketIds: Set<number>) {
+  try {
+    window.localStorage.setItem(
+      ownedTicketStorageKey,
+      JSON.stringify(Array.from(ownedTicketIds).sort((a, b) => a - b)),
+    )
+  } catch {
+    // Keep the in-memory selection usable even when storage is unavailable.
+  }
+}
+
 export function App() {
   const [selectedTicketId, setSelectedTicketId] = useState(tickets[0]?.id ?? 0)
   const [globalQuery, setGlobalQuery] = useState('')
@@ -67,6 +101,9 @@ export function App() {
   )
   const [characterName, setCharacterName] = useState('all')
   const [rarity, setRarity] = useState('all')
+  const [ownedTicketIds, setOwnedTicketIds] = useState(loadOwnedTicketIds)
+  const [showOwnedOnlyLinkedTickets, setShowOwnedOnlyLinkedTickets] =
+    useState(false)
 
   const selectedTicket =
     tickets.find((ticket) => ticket.id === selectedTicketId) ?? tickets[0]
@@ -126,6 +163,58 @@ export function App() {
     setExpandedTicketCardId(null)
   }
 
+  function handleOwnedTicketChange(ticketId: number, isOwned: boolean) {
+    setOwnedTicketIds((currentIds) => {
+      const nextIds = new Set(currentIds)
+
+      if (isOwned) {
+        nextIds.add(ticketId)
+      } else {
+        nextIds.delete(ticketId)
+      }
+
+      saveOwnedTicketIds(nextIds)
+      return nextIds
+    })
+  }
+
+  function handleSelectAllOwnedTickets() {
+    const nextIds = new Set(tickets.map((ticket) => ticket.id))
+    saveOwnedTicketIds(nextIds)
+    setOwnedTicketIds(nextIds)
+  }
+
+  function getVisibleLinkedTickets(linkedTickets: Ticket[]) {
+    if (!showOwnedOnlyLinkedTickets) return linkedTickets
+    return linkedTickets.filter((ticket) => ownedTicketIds.has(ticket.id))
+  }
+
+  function renderLinkedTickets(linkedTickets: Ticket[]) {
+    const visibleLinkedTickets = getVisibleLinkedTickets(linkedTickets)
+
+    if (visibleLinkedTickets.length === 0) {
+      return (
+        <p class="empty-state">
+          {showOwnedOnlyLinkedTickets
+            ? '所持チケットに対象はありません'
+            : '対象チケットはありません'}
+        </p>
+      )
+    }
+
+    return visibleLinkedTickets.map((ticket) => (
+      <button
+        type="button"
+        class="linked-ticket"
+        onClick={() => handleTicketChange(ticket.id)}
+        key={ticket.id}
+      >
+        <span>{ticket.name}</span>
+        <small>開始日 {ticket.startDate}</small>
+      </button>
+    ))
+  }
+
   return (
     <main class="app-shell">
       <header class="app-header">
@@ -149,18 +238,31 @@ export function App() {
       </header>
 
       <section class="global-search" aria-label="カード全体検索">
-        <label>
-          <span>カード全体検索</span>
-          <input
-            type="search"
-            value={globalQuery}
-            onInput={(event) => {
-              setGlobalQuery(event.currentTarget.value)
-              setSelectedSearchCardId(null)
-            }}
-            placeholder="カード名から検索"
-          />
-        </label>
+        <div class="global-search-controls">
+          <label class="global-search-field">
+            <span>カード全体検索</span>
+            <input
+              type="search"
+              value={globalQuery}
+              onInput={(event) => {
+                setGlobalQuery(event.currentTarget.value)
+                setSelectedSearchCardId(null)
+              }}
+              placeholder="カード名から検索"
+            />
+          </label>
+          <label class="switch-control global-owned-mode">
+            <input
+              type="checkbox"
+              checked={showOwnedOnlyLinkedTickets}
+              onChange={(event) =>
+                setShowOwnedOnlyLinkedTickets(event.currentTarget.checked)
+              }
+            />
+            <span class="switch-track" aria-hidden="true" />
+            <span class="switch-label">所持チケットのみ</span>
+          </label>
+        </div>
         {globalQuery.length > 0 && (
           <div class="search-results">
             <p>
@@ -199,19 +301,7 @@ export function App() {
             {selectedSearchCard && (
               <section class="linked-tickets" aria-label="検索カードの対象チケット">
                 <h2>{selectedSearchCard.name}</h2>
-                <div>
-                  {selectedSearchCard.tickets.map((ticket) => (
-                    <button
-                      type="button"
-                      class="linked-ticket"
-                      onClick={() => handleTicketChange(ticket.id)}
-                      key={ticket.id}
-                    >
-                      <span>{ticket.name}</span>
-                      <small>開始日 {ticket.startDate}</small>
-                    </button>
-                  ))}
-                </div>
+                <div>{renderLinkedTickets(selectedSearchCard.tickets)}</div>
               </section>
             )}
           </div>
@@ -220,18 +310,48 @@ export function App() {
 
       <section class="viewer-grid">
         <aside class="ticket-panel" aria-label="セレクトチケット">
-          <h2>チケット</h2>
+          <div class="ticket-panel-header">
+            <h2>チケット</h2>
+            <button
+              type="button"
+              class="select-all-tickets"
+              onClick={handleSelectAllOwnedTickets}
+            >
+              全選択
+            </button>
+          </div>
           <div class="ticket-list">
             {tickets.map((ticket) => (
-              <button
-                type="button"
-                class={ticket.id === selectedTicket.id ? 'ticket active' : 'ticket'}
-                onClick={() => handleTicketChange(ticket.id)}
+              <div
+                class={
+                  ticket.id === selectedTicket.id
+                    ? 'ticket-row active'
+                    : 'ticket-row'
+                }
                 key={ticket.id}
               >
-                <span>{ticket.name}</span>
-                <small>{ticket.cards.length} cards</small>
-              </button>
+                <label class="owned-ticket-toggle">
+                  <input
+                    type="checkbox"
+                    checked={ownedTicketIds.has(ticket.id)}
+                    onChange={(event) =>
+                      handleOwnedTicketChange(
+                        ticket.id,
+                        event.currentTarget.checked,
+                      )
+                    }
+                  />
+                  <span>所持</span>
+                </label>
+                <button
+                  type="button"
+                  class="ticket"
+                  onClick={() => handleTicketChange(ticket.id)}
+                >
+                  <span>{ticket.name}</span>
+                  <small>{ticket.cards.length} cards</small>
+                </button>
+              </div>
             ))}
           </div>
         </aside>
@@ -316,17 +436,7 @@ export function App() {
                 {card.isParallel && <span class="badge">Parallel</span>}
                 {card.id === expandedTicketCardId && (
                   <div class="card-linked-tickets">
-                    {(ticketsByCardId.get(card.id) ?? []).map((ticket) => (
-                      <button
-                        type="button"
-                        class="linked-ticket"
-                        onClick={() => handleTicketChange(ticket.id)}
-                        key={ticket.id}
-                      >
-                        <span>{ticket.name}</span>
-                        <small>開始日 {ticket.startDate}</small>
-                      </button>
-                    ))}
+                    {renderLinkedTickets(ticketsByCardId.get(card.id) ?? [])}
                   </div>
                 )}
               </article>
